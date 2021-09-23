@@ -1,0 +1,69 @@
+#include <iostream>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+using namespace std;
+
+//TODO: uncomment argc, argv to use input parameters
+int main(/*int argc, char *argv[]*/)
+{
+
+    //TODO: add usage output section
+
+    //Temporary constant values for hostname and port
+    //TODO: add hostname and port input section
+    string server_hostname = "localhost";
+    string server_port = "49153";
+
+    int status;
+
+    struct addrinfo addrinfo_reqs = {0}; //address_info_requirements
+    addrinfo_reqs.ai_family = AF_INET;
+    addrinfo_reqs.ai_socktype = SOCK_STREAM;
+    addrinfo_reqs.ai_protocol = IPPROTO_TCP;
+
+    struct addrinfo *server_addrinfo;
+
+    //TODO: check if returning values are correct
+
+    if ((status = getaddrinfo(server_hostname.c_str(), server_port.c_str(), &addrinfo_reqs, &server_addrinfo)) != 0) {
+        cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
+        return status;
+    }
+
+    int client_socket;
+
+    if ((client_socket = socket(server_addrinfo->ai_family, server_addrinfo->ai_socktype, server_addrinfo->ai_protocol)) == -1) {
+        cerr << "socket error." << endl;
+        return client_socket;
+    }
+
+    if ((status = connect(client_socket, server_addrinfo->ai_addr, server_addrinfo->ai_addrlen)) == -1) {
+        cerr << "connect error." << endl;
+        return status;
+    }
+
+    cout << "Connection with host " << server_hostname << " on port " << server_port << "established successfully." << endl;
+
+    //TODO: send, recv
+    string buffer = "";
+
+    recv(client_socket, &buffer, sizeof(buffer),0);
+/*    while (true) {
+        fd_set
+    }
+*/
+    /*
+    struct sockaddr_in server_socket_info = {
+        .sin_addr = htonl(), .sin_family = AF_INET, .sin_port = htons(server_port)
+    };
+    server_socket_info.sin_addr
+
+*/
+    cout << "Everything is all right!" << endl << "Yet..." << endl;
+    return 0;
+}
