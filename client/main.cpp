@@ -51,7 +51,7 @@ int main(/*int argc, char *argv[]*/)
         return status;
     }
 
-    cout << "Connection with host " << server_hostname << " on port " << server_port << "established successfully." << endl;
+    cout << "Connection with host " << server_hostname << " on port " << server_port << " established successfully." << endl;
 
     while (true) {
         string client_message;
