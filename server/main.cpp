@@ -23,30 +23,30 @@ int main(/*int argc, char *argv[]*/)
         return server_socket;
     }
 
-    //TODO: are these areas of visibility so nessecary? code readability may suffer saving 4 bytes of int.
-    {
-        int sockopt_val = 1; //socket_option_value
+    int sockopt_val = 1; //socket_option_value
 
-        if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &sockopt_val, sizeof(sockopt_val)) == -1) {
-           cerr << "setsockopt reuseaddr error." << endl;
-            exit(EXIT_FAILURE);
-           }
+    if (setsockopt(server_socket,
+                   SOL_SOCKET,
+                   SO_REUSEADDR | SO_REUSEPORT,
+                   &sockopt_val,
+                   sizeof(sockopt_val)) == -1) {
+        cerr << "setsockopt reuseaddr error." << endl;
+        exit(EXIT_FAILURE);
     }
 
     struct sockaddr_in my_addr;
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = stoi(server_port);
 
-    //TODO: are these areas of visibility so nessecary? code readability may suffer saving ?? bytes of in_addr.
-    {
-        struct in_addr temp_internet_address = {
-            .s_addr = INADDR_ANY
-        };
+    struct in_addr temp_internet_address = {
+        .s_addr = INADDR_ANY
+    };
 
-        my_addr.sin_addr = temp_internet_address;
-    }
+    my_addr.sin_addr = temp_internet_address;
 
     //TODO: bind, listen, accept
+
+
 
     //Temporary constat value for max client connections
     //TODO: add max client connections selection block (or something)
