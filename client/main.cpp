@@ -28,21 +28,26 @@ int main(/*int argc, char *argv[]*/)
 
     struct addrinfo *server_addrinfo;
 
-    //TODO: check if returning values are correct
-
-    if ((status = getaddrinfo(server_hostname.c_str(), server_port.c_str(), &addrinfo_reqs, &server_addrinfo)) != 0) {
+    if ((status = getaddrinfo(server_hostname.c_str(),
+                              server_port.c_str(),
+                              &addrinfo_reqs,
+                              &server_addrinfo)) != 0) {
         cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
         return status;
     }
 
     int client_socket;
 
-    if ((client_socket = socket(server_addrinfo->ai_family, server_addrinfo->ai_socktype, server_addrinfo->ai_protocol)) == -1) {
+    if ((client_socket = socket(server_addrinfo->ai_family,
+                                server_addrinfo->ai_socktype,
+                                server_addrinfo->ai_protocol)) == -1) {
         cerr << "socket error." << endl;
         return client_socket;
     }
 
-    if ((status = connect(client_socket, server_addrinfo->ai_addr, server_addrinfo->ai_addrlen)) == -1) {
+    if ((status = connect(client_socket,
+                          server_addrinfo->ai_addr,
+                          server_addrinfo->ai_addrlen)) == -1) {
         cerr << "connect error." << endl;
         return status;
     }
