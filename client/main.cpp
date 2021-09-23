@@ -62,7 +62,7 @@ int main(/*int argc, char *argv[]*/)
 
         if (client_message == "quit") {
             if (write(client_socket, client_message.c_str(), client_message.size()) == -1) {
-                cout << "quit message sending error" << endl;
+                cerr << "quit message sending error" << endl;
                 return -1;
             }
             else {
@@ -73,7 +73,7 @@ int main(/*int argc, char *argv[]*/)
 
         //TODO: do we quit if message was sent with error?
         if (write(client_socket, client_message.c_str(), client_message.size()) == -1) {
-            cout << "message sending error" << endl;
+            cerr << "message sending error" << endl;
             return -1;
         }
         else {
@@ -85,7 +85,7 @@ int main(/*int argc, char *argv[]*/)
 
         //TODO: also do we quit if message wasn't recieved?
         if (read(client_socket, &server_message, sizeof(server_message)) == -1) {
-            cout << "message recieving error" << endl;
+            cerr << "message recieving error" << endl;
             return -1;
         }
 
