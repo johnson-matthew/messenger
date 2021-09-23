@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -34,25 +35,62 @@ int main(/*int argc, char *argv[]*/)
         exit(EXIT_FAILURE);
     }
 
-    struct sockaddr_in my_addr;
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = stoi(server_port);
+    struct addrinfo addrinfo_reqs = {0}; //address_info_requirements
+    addrinfo_reqs.ai_family = AF_INET;
+    addrinfo_reqs.ai_socktype = SOCK_STREAM;
+    addrinfo_reqs.ai_flags = AI_PASSIVE;
 
-    struct in_addr temp_internet_address = {
-        .s_addr = INADDR_ANY
-    };
+    int status;
+    struct addrinfo *server_addrinfo;
 
-    my_addr.sin_addr = temp_internet_address;
+    if ((status = getaddrinfo(NULL,
+                              server_port.c_str(),
+                              &addrinfo_reqs,
+                              &server_addrinfo)) != 0) {
+        cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
+        return status;
+    }
 
-    //TODO: bind, listen, accept
-
-
+    if (bind(server_socket, server_addrinfo->ai_addr, server_addrinfo->ai_addrlen) == -1) {
+        cerr << "bind error" << endl;
+        return -1;
+    }
 
     //Temporary constat value for max client connections
     //TODO: add max client connections selection block (or something)
     const int max_clients = 100;
+    if (listen(server_socket, max_clients) == -1) {
+        cerr << "listen error" << endl;
+        return -1;
+    }
 
-    int client_socket[max_clients] = {0};
+    cout << "Server " << server_addrinfo->ai_addr->sa_data << " started to listen on port " << server_port << "." << endl;
+
+    //TODO: temporary declared as int (should be int[max_clients])
+    int client_socket;
+    client_socket = accept(server_socket, server_addrinfo->ai_addr, &server_addrinfo->ai_addrlen);
+    string client_message;
+
+    while (read(client_socket, &client_message, client_message.size()) != -1)
+    {
+        cout << "client message recieved: " << client_message << endl;
+
+        //TODO: do we quit if message was sent with error?
+        if (write(client_socket, client_message.c_str(), client_message.size()) == -1) {
+            cerr << "message sending error" << endl;
+            return -1;
+        }
+        else {
+            cout << "message sent successfully" << endl;
+        }
+
+        if (client_message == "quit") {
+            close(client_socket);
+            cout << "quit message recieved, client quits" << endl;
+            break;
+        }
+        cout.flush();
+    }
 
     return 0;
 }

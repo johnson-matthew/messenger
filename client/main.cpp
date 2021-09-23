@@ -1,9 +1,7 @@
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <stdio.h>
 #include <string>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -84,7 +82,7 @@ int main(/*int argc, char *argv[]*/)
         string server_message = "";
 
         //TODO: also do we quit if message wasn't recieved?
-        if (read(client_socket, &server_message, sizeof(server_message)) == -1) {
+        if (read(client_socket, &server_message, server_message.size()) == -1) {
             cerr << "message recieving error" << endl;
             return -1;
         }
