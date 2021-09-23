@@ -5,6 +5,7 @@
 #include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -54,21 +55,42 @@ int main(/*int argc, char *argv[]*/)
 
     cout << "Connection with host " << server_hostname << " on port " << server_port << "established successfully." << endl;
 
-    //TODO: send, recv
-    string buffer = "";
+    while (true) {
+        string client_message;
+        cout << "please, enter your message and press \"Enter\": ";
+        cin >> client_message;
 
-    recv(client_socket, &buffer, sizeof(buffer),0);
-/*    while (true) {
-        fd_set
+        if (client_message == "quit") {
+            if (write(client_socket, client_message.c_str(), client_message.size()) == -1) {
+                cout << "quit message sending error" << endl;
+                return -1;
+            }
+            else {
+                close(client_socket);
+                cout << "quit message sent successfully, client quits" << endl;
+            }
+        }
+
+        //TODO: do we quit if message was sent with error?
+        if (write(client_socket, client_message.c_str(), client_message.size()) == -1) {
+            cout << "message sending error" << endl;
+            return -1;
+        }
+        else {
+            cout << "message sent successfully" << endl;
+        }
+
+        cout.flush();
+        string server_message = "";
+
+        //TODO: also do we quit if message wasn't recieved?
+        if (read(client_socket, &server_message, sizeof(server_message)) == -1) {
+            cout << "message recieving error" << endl;
+            return -1;
+        }
+
+        cout << "server message recieved: " << server_message << endl;
     }
-*/
-    /*
-    struct sockaddr_in server_socket_info = {
-        .sin_addr = htonl(), .sin_family = AF_INET, .sin_port = htons(server_port)
-    };
-    server_socket_info.sin_addr
 
-*/
-    cout << "Everything is all right!" << endl << "Yet..." << endl;
     return 0;
 }
