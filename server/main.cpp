@@ -1,7 +1,7 @@
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <string>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -15,7 +15,7 @@ int main(/*int argc, char *argv[]*/)
 
     //Temporary constant value for port
     //TODO: add port input section
-    string server_port = "49153";
+    char server_port[] = "49153";
 
     int server_socket;
 
@@ -44,7 +44,7 @@ int main(/*int argc, char *argv[]*/)
     struct addrinfo *server_addrinfo;
 
     if ((status = getaddrinfo(NULL,
-                              server_port.c_str(),
+                              server_port,
                               &addrinfo_reqs,
                               &server_addrinfo)) != 0) {
         cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
@@ -69,14 +69,14 @@ int main(/*int argc, char *argv[]*/)
     //TODO: temporary declared as int (should be int[max_clients])
     int client_socket;
     client_socket = accept(server_socket, server_addrinfo->ai_addr, &server_addrinfo->ai_addrlen);
-    char client_message[256];
+    char client_message[4096];
 
-    while (read(client_socket, client_message, 256) != -1)
+    while (read(client_socket, &client_message, (4096 * sizeof(char))) != -1)
     {
         cout << "client message recieved: " << client_message << endl;
 
         //TODO: do we quit if message was sent with error?
-        if (write(client_socket, client_message, 256) == -1) {
+        if (write(client_socket, &client_message, 4096 * sizeof(char)) == -1) {
             cerr << "message sending error" << endl;
             return -1;
         }
@@ -84,7 +84,7 @@ int main(/*int argc, char *argv[]*/)
             cout << "message sent successfully" << endl;
         }
 
-        if (client_message == "quit") {
+        if (strcmp(client_message, "quit") == 0) {
             close(client_socket);
             cout << "quit message recieved, client quits" << endl;
             break;
