@@ -5,6 +5,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../shared_params.h"
+
 using namespace std;
 
 //TODO: uncomment argc, argv to use input parameters
@@ -15,10 +17,6 @@ int main(/*int argc, char *argv[]*/)
 
     //Temporary constant values for hostname and port
     //TODO: add hostname and port input section
-    char server_hostname[] = "localhost";
-    char server_port[] = "49153";
-
-    int status;
 
     struct addrinfo addrinfo_reqs = {
         .ai_family = AF_INET,
@@ -28,8 +26,10 @@ int main(/*int argc, char *argv[]*/)
 
     struct addrinfo *server_addrinfo;
 
-    if ((status = getaddrinfo(server_hostname,
-                              server_port,
+    int status;
+
+    if ((status = getaddrinfo(SERVER_HOSTNAME,
+                              SERVER_PORT,
                               &addrinfo_reqs,
                               &server_addrinfo)) != 0) {
         cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
@@ -41,54 +41,53 @@ int main(/*int argc, char *argv[]*/)
     if ((client_socket = socket(server_addrinfo->ai_family,
                                 server_addrinfo->ai_socktype,
                                 server_addrinfo->ai_protocol)) == -1) {
-        cerr << "socket error." << endl;
+        cerr << "socket error" << endl;
         return client_socket;
     }
 
     if ((status = connect(client_socket,
                           server_addrinfo->ai_addr,
                           server_addrinfo->ai_addrlen)) == -1) {
-        cerr << "connect error." << endl;
+        cerr << "connect error" << endl;
         return status;
     }
 
-    cout << "Connection with host " << server_hostname << " on port " << server_port << " established successfully." << endl;
+    //"Magic" escape-sequence to clear console
+    // \e means escape code
+    // ESC[2J clears screen from top (2) to bottom (J);
+    // ESC[H moves cursor to home position
+    cout << "\e[2J\e[H";
+
+    cout << "connection with host " << SERVER_HOSTNAME <<
+            " on port " << SERVER_PORT << " established." << endl;
 
     while (true) {
-        char client_message[4096];
+        char message[MAX_MESSAGE_LENGTH];
         cout << "please, enter your message and press \"Enter\": ";
-        cin >> client_message;
-
-        if (strcmp(client_message, "quit") == 0) {
-            if (write(client_socket, client_message, 4096 * sizeof(char)) == -1) {
-                cerr << "quit message sending error" << endl;
-                return -1;
-            }
-            else {
-                close(client_socket);
-                cout << "quit message sent successfully, client quits" << endl;
-                break;
-            }
-        }
+        cin >> message;
 
         //TODO: do we quit if message was sent with error?
-        if (write(client_socket, client_message, 4096 * sizeof(char)) == -1) {
+        if (write(client_socket, message, MAX_MESSAGE_LENGTH * sizeof(char)) == -1) {
             cerr << "message sending error" << endl;
-            return -1;
         }
         else {
             cout << "message sent successfully" << endl;
         }
 
-        cout.flush();
-
-        //TODO: also do we quit if message wasn't recieved?
-        if (read(client_socket, client_message, 4096 * sizeof(char)) == -1) {
-            cerr << "message recieving error" << endl;
-            return -1;
+        if (strcmp(message, "quit") == 0) {
+            cout << "client quits" << endl;
+            close(client_socket);
+            break;
         }
 
-        cout << "server message recieved: " << client_message << endl;
+        //TODO: also do we quit if message wasn't recieved?
+        if (read(client_socket, message, MAX_MESSAGE_LENGTH * sizeof(char)) == -1) {
+            cerr << "message recieving error" << endl;
+        }
+        else {
+            cout << "server message recieved: " << message << endl;
+        }
+
     }
 
     return 0;

@@ -1,0 +1,10 @@
+#ifndef SHARED_PARAMS_H
+#define SHARED_PARAMS_H
+
+#define MAX_CLIENTS 100
+#define MAX_MESSAGE_LENGTH 4096
+
+#define SERVER_HOSTNAME "localhost"
+#define SERVER_PORT "49153"
+
+#endif // SHARED_PARAMS_H
