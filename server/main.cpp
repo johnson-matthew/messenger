@@ -19,25 +19,8 @@ int main(/*int argc, char *argv[]*/)
     //Temporary constant value for port
     //TODO: add port input section
 
-    int server_socket;
-
-    if ((server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        cerr << "socket error." << endl;
-        return server_socket;
-    }
-
-    int sockopt_val = 1; //socket_option_value
-
-    if (setsockopt(server_socket,
-                   SOL_SOCKET,
-                   SO_REUSEADDR | SO_REUSEPORT,
-                   &sockopt_val,
-                   sizeof(sockopt_val)) == -1) {
-        cerr << "setsockopt reuseaddr error." << endl;
-        exit(EXIT_FAILURE);
-    }
-
     addrinfo addrinfo_reqs = {
+        .ai_flags = AI_PASSIVE,
         .ai_family = AF_INET,
         .ai_socktype = SOCK_STREAM,
         .ai_protocol = IPPROTO_TCP
@@ -52,6 +35,27 @@ int main(/*int argc, char *argv[]*/)
                               &server_addrinfo)) != 0) {
         cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
         return status;
+    }
+
+    int server_socket;
+
+    if ((server_socket = socket(server_addrinfo->ai_family,
+                                server_addrinfo->ai_socktype,
+                                server_addrinfo->ai_protocol)) == -1) {
+        cerr << "socket error." << endl;
+        return server_socket;
+    }
+
+    //set SO_REUSEADDR and SO_REUSEPORT flags on a server_socket to "yes" value (1)
+    int yes = 1;
+
+    if (setsockopt(server_socket,
+                   SOL_SOCKET,
+                   SO_REUSEADDR | SO_REUSEPORT,
+                   &yes,
+                   sizeof(yes)) == -1) {
+        cerr << "setsockopt reuseaddr reuseport error." << endl;
+        exit(EXIT_FAILURE);
     }
 
     if ((status = bind(server_socket,
