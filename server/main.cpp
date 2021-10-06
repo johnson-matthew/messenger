@@ -1,12 +1,15 @@
 #include <arpa/inet.h>
+#include <errno.h>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../shared_params.h"
+#include "../shared_params.hpp"
 
 using namespace std;
 
@@ -20,56 +23,62 @@ int main(/*int argc, char *argv[]*/)
     //TODO: add port input section
 
     addrinfo addrinfo_reqs = {
-        .ai_flags = AI_PASSIVE,
+        .ai_flags = 0,
         .ai_family = AF_INET,
         .ai_socktype = SOCK_STREAM,
-        .ai_protocol = IPPROTO_TCP
+        .ai_protocol = IPPROTO_TCP,
+        .ai_addrlen = 0,
+        .ai_addr = nullptr,
+        .ai_canonname = nullptr,
+        .ai_next = nullptr
     }; //address_info_requirements
 
-    int status;
     addrinfo *server_addrinfo;
+    int getaddrinfo_status = getaddrinfo(NULL,
+                             SERVER_PORT,
+                             &addrinfo_reqs,
+                             &server_addrinfo);
 
-    if ((status = getaddrinfo(NULL,
-                              SERVER_PORT,
-                              &addrinfo_reqs,
-                              &server_addrinfo)) != 0) {
-        cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
-        return status;
+    if (getaddrinfo_status != 0) {
+        cerr << "getaddrinfo() error: " << gai_strerror(getaddrinfo_status) << endl;
+        return getaddrinfo_status;
     }
 
-    int server_socket;
+    int listen_socket = socket(server_addrinfo->ai_family,
+                               server_addrinfo->ai_socktype,
+                               server_addrinfo->ai_protocol);
 
-    if ((server_socket = socket(server_addrinfo->ai_family,
-                                server_addrinfo->ai_socktype,
-                                server_addrinfo->ai_protocol)) == -1) {
-        cerr << "socket error." << endl;
-        return server_socket;
+    if (listen_socket == -1) {
+        cerr << "socket() error: " << strerror(errno) << endl;
+        return errno;
     }
 
-    //set SO_REUSEADDR and SO_REUSEPORT flags on a server_socket to "yes" value (1)
-    int yes = 1;
+    //set SO_REUSEADDR and SO_REUSEPORT flags on a listen_socket to "true" value (1)
+    int listen_socket_flag = (int)true;
 
-    if (setsockopt(server_socket,
+    if (setsockopt(listen_socket,
                    SOL_SOCKET,
                    SO_REUSEADDR | SO_REUSEPORT,
-                   &yes,
-                   sizeof(yes)) == -1) {
-        cerr << "setsockopt reuseaddr reuseport error." << endl;
-        exit(EXIT_FAILURE);
+                   &listen_socket_flag,
+                   sizeof(listen_socket_flag)) == -1) {
+        cerr << "setsockopt() error: " << strerror(errno) << endl;
+        return errno;
     }
 
-    if ((status = bind(server_socket,
-                       server_addrinfo->ai_addr,
-                       server_addrinfo->ai_addrlen)) == -1) {
-        cerr << "bind error" << endl;
-        return status;
+    if (bind(listen_socket,
+             server_addrinfo->ai_addr,
+             server_addrinfo->ai_addrlen) == -1) {
+        close(listen_socket);
+        freeaddrinfo(server_addrinfo);
+        cerr << "bind() error: " << strerror(errno) << endl;
+        return errno;
     }
 
     //Temporary constat value for max client connections
     //TODO: add max client connections selection block (or something)
-    if ((status = listen(server_socket, MAX_CLIENTS)) == -1) {
-        cerr << "listen error" << endl;
-        return -1;
+    if (listen(listen_socket, MAX_CLIENTS) == -1) {
+        cerr << "listen() error: " << strerror(errno) << endl;
+        return errno;
     }
 
     char server_ip_address[INET_ADDRSTRLEN];
@@ -77,25 +86,78 @@ int main(/*int argc, char *argv[]*/)
                   &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
                   server_ip_address,
                   INET_ADDRSTRLEN) == NULL) {
-        cerr << "inet_ntop error" << endl;
-        return NULL;
+        cerr << "inet_ntop() error: " <<strerror(errno) << endl;
+        return errno;
     }
 
     cout << "server " << server_ip_address << " started on port " << SERVER_PORT << "." << endl;
 
-    //TODO: temporary declared as int (should be int[max_clients])
-    int client_socket;
-    client_socket = accept(server_socket,
-                           server_addrinfo->ai_addr,
-                           &server_addrinfo->ai_addrlen);
-    char client_message[MAX_MESSAGE_LENGTH];
+    pollfd pollsd_set[MAX_CLIENTS]; // polling_socket_descriptors_set
+    pollsd_set[0].fd = listen_socket;
+    pollsd_set[0].events = POLLIN;
+    int pollsd_count = 1; // polling_socket_descriptors_count
 
-    while (read(client_socket, &client_message, (MAX_MESSAGE_LENGTH * sizeof(char))) != -1)
+    for(;;) {
+        int poll_count = poll(pollsd_set, pollsd_count, -1);
+
+        if (poll_count == -1) {
+            cerr << "poll() error: " << strerror(errno) << endl;
+            return errno;
+        }
+
+        for (int i = 0; i < pollsd_count; i++) {
+
+            if (pollsd_set[i].revents & POLLIN) {
+
+                if (pollsd_set[i].fd == listen_socket) {
+
+                    int client_socket = accept(listen_socket,
+                                               server_addrinfo->ai_addr,
+                                               &server_addrinfo->ai_addrlen);
+
+                    if (client_socket == -1) {
+                        cerr << "accept() error: " << strerror(errno) << endl;
+                    }
+                    else {
+                        pollsd_set[pollsd_count].fd = client_socket;
+                        pollsd_set[pollsd_count].events = POLLIN;
+                        pollsd_count++;
+
+                        // TODO: output a message informing that client is connected
+                        /*char client_ip_address[INET_ADDRSTRLEN];
+                        if (inet_ntop(AF_INET,
+                                      &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
+                                      client_ip_address,
+                                      INET_ADDRSTRLEN) == NULL) {
+                            cerr << "inet_ntop() error: " <<strerror(errno) << endl;
+                            return errno;
+                        }
+
+                        cout << "server " << server_ip_address << " started on port " << SERVER_PORT << "." << endl;
+
+                        cout << */
+                        cout << "server accepted another client." << endl;
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+
+    //TODO: temporary declared as int (should be int[max_clients])
+
+
+    char message[MAX_MESSAGE_LENGTH];
+    /*while (read(client_socket, &message, (MAX_MESSAGE_LENGTH * sizeof(char))) != -1)
     {
-        cout << "client message recieved: " << client_message << endl;
+        cout << "client message recieved: " << message << endl;
 
         //TODO: do we quit if message was sent with error?
-        if (write(client_socket, &client_message, MAX_MESSAGE_LENGTH * sizeof(char)) == -1) {
+        if (write(client_socket, &message, MAX_MESSAGE_LENGTH * sizeof(char)) == -1) {
             cerr << "message sending error" << endl;
             return -1;
         }
@@ -103,13 +165,13 @@ int main(/*int argc, char *argv[]*/)
             cout << "message sent successfully" << endl;
         }
 
-        if (strcmp(client_message, "quit") == 0) {
+        if (strcmp(message, "quit") == 0) {
             close(client_socket);
             cout << "quit message recieved, client quits" << endl;
             break;
         }
         cout.flush();
-    }
+    }*/
 
     return 0;
 }

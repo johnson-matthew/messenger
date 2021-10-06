@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../shared_params.h"
+#include "../shared_params.hpp"
 
 using namespace std;
 
@@ -18,38 +18,43 @@ int main(/*int argc, char *argv[]*/)
     //Temporary constant values for hostname and port
     //TODO: add hostname and port input section
 
-    struct addrinfo addrinfo_reqs = {
+    addrinfo addrinfo_reqs = {
+        .ai_flags = 0,
         .ai_family = AF_INET,
         .ai_socktype = SOCK_STREAM,
-        .ai_protocol = IPPROTO_TCP
+        .ai_protocol = IPPROTO_TCP,
+        .ai_addrlen = 0,
+        .ai_addr = nullptr,
+        .ai_canonname = nullptr,
+        .ai_next = nullptr
     }; //address_info_requirements
 
-    struct addrinfo *server_addrinfo;
+    addrinfo *server_addrinfo;
 
-    int status;
+    int status = getaddrinfo(SERVER_HOSTNAME,
+                             SERVER_PORT,
+                             &addrinfo_reqs,
+                             &server_addrinfo);
 
-    if ((status = getaddrinfo(SERVER_HOSTNAME,
-                              SERVER_PORT,
-                              &addrinfo_reqs,
-                              &server_addrinfo)) != 0) {
-        cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
+    if (status != 0) {
+        cerr << "getaddrinfo() error: " << gai_strerror(status) << endl;
         return status;
     }
 
-    int client_socket;
+    int client_socket = socket(server_addrinfo->ai_family,
+                               server_addrinfo->ai_socktype,
+                               server_addrinfo->ai_protocol);
 
-    if ((client_socket = socket(server_addrinfo->ai_family,
-                                server_addrinfo->ai_socktype,
-                                server_addrinfo->ai_protocol)) == -1) {
-        cerr << "socket error" << endl;
-        return client_socket;
+    if (client_socket == -1) {
+        cerr << "socket() error: " << strerror(errno) << endl;
+        return errno;
     }
 
-    if ((status = connect(client_socket,
-                          server_addrinfo->ai_addr,
-                          server_addrinfo->ai_addrlen)) == -1) {
-        cerr << "connect error" << endl;
-        return status;
+    if (connect(client_socket,
+                server_addrinfo->ai_addr,
+                server_addrinfo->ai_addrlen) == -1) {
+        cerr << "connect() error: " << strerror(errno) << endl;
+        return errno;
     }
 
     //"Magic" escape-sequence to clear console
