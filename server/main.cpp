@@ -1,9 +1,11 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <iostream>
+#include <list>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -12,6 +14,39 @@
 #include "../shared_params.hpp"
 
 using namespace std;
+
+//TODO: global variables! it's a blasphemy!))
+
+int listen_socket;
+addrinfo *server_addrinfo;
+list<int> client_sockets_list;
+
+
+//TODO: think out on thread exit conditions
+void* get_client_socket(void *args) {
+    for (;;) {
+        int client_socket = accept(listen_socket,
+                                   server_addrinfo->ai_addr,
+                                   &server_addrinfo->ai_addrlen);
+
+        if (client_socket == -1) {
+            cerr << "accept() error: " << strerror(errno) << endl;
+        }
+        else {
+            client_sockets_list.push_back(client_socket);
+            char client_ip_address[INET_ADDRSTRLEN];
+            if (inet_ntop(AF_INET,
+                          &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
+                          client_ip_address,
+                          INET_ADDRSTRLEN) == NULL) {
+                cerr << "inet_ntop() error: " <<strerror(errno) << endl;
+            }
+            // TODO: output a message informing that client is connected
+            cout << "server accepted client from " << client_ip_address << " successfully." << endl;
+        }
+    }
+    pthread_exit(EXIT_SUCCESS);
+}
 
 //TODO: uncomment argc, argv to use input parameters
 int main(/*int argc, char *argv[]*/)
@@ -33,7 +68,6 @@ int main(/*int argc, char *argv[]*/)
         .ai_next = nullptr
     }; //address_info_requirements
 
-    addrinfo *server_addrinfo;
     int getaddrinfo_status = getaddrinfo(NULL,
                              SERVER_PORT,
                              &addrinfo_reqs,
@@ -44,9 +78,9 @@ int main(/*int argc, char *argv[]*/)
         return getaddrinfo_status;
     }
 
-    int listen_socket = socket(server_addrinfo->ai_family,
-                               server_addrinfo->ai_socktype,
-                               server_addrinfo->ai_protocol);
+    listen_socket = socket(server_addrinfo->ai_family,
+                           server_addrinfo->ai_socktype,
+                           server_addrinfo->ai_protocol);
 
     if (listen_socket == -1) {
         cerr << "socket() error: " << strerror(errno) << endl;
@@ -92,6 +126,12 @@ int main(/*int argc, char *argv[]*/)
 
     cout << "server " << server_ip_address << " started on port " << SERVER_PORT << "." << endl;
 
+    pthread_t get_client_socket_thread;
+    int retval = pthread_create(&get_client_socket_thread, NULL, &get_client_socket, NULL);
+    //get_client_socket_thread.detach();
+
+    cout << "get_client_socket_thread detached successfully." << endl;
+
     pollfd pollsd_set[MAX_CLIENTS]; // polling_socket_descriptors_set
     pollsd_set[0].fd = listen_socket;
     pollsd_set[0].events = POLLIN;
@@ -104,7 +144,7 @@ int main(/*int argc, char *argv[]*/)
             cerr << "poll() error: " << strerror(errno) << endl;
             return errno;
         }
-
+/*
         for (int i = 0; i < pollsd_count; i++) {
 
             if (pollsd_set[i].revents & POLLIN) {
@@ -123,8 +163,8 @@ int main(/*int argc, char *argv[]*/)
                         pollsd_set[pollsd_count].events = POLLIN;
                         pollsd_count++;
 
-                        // TODO: output a message informing that client is connected
-                        /*char client_ip_address[INET_ADDRSTRLEN];
+
+                        char client_ip_address[INET_ADDRSTRLEN];
                         if (inet_ntop(AF_INET,
                                       &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
                                       client_ip_address,
@@ -135,8 +175,7 @@ int main(/*int argc, char *argv[]*/)
 
                         cout << "server " << server_ip_address << " started on port " << SERVER_PORT << "." << endl;
 
-                        cout << */
-                        cout << "server accepted another client." << endl;
+
                     }
 
                 }
@@ -144,7 +183,7 @@ int main(/*int argc, char *argv[]*/)
             }
 
         }
-
+*/
     }
 
 
