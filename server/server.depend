@@ -1,14 +1,10 @@
 # depslib dependency file v1.0
-1633709228 source:/home/user/CodeBlocksProjects/messenger/server/main.cpp
+1633714291 source:/home/user/CodeBlocksProjects/messenger/server/main.cpp
 	<arpa/inet.h>
 	<errno.h>
 	<iostream>
-	<list>
 	<netdb.h>
-	<netinet/in.h>
 	<poll.h>
-	<pthread.h>
-	<stdio.h>
 	<string.h>
 	<sys/socket.h>
 	<unistd.h>

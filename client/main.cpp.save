@@ -1,5 +1,7 @@
+//#include <fcntl.h>
 #include <iostream>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <poll.h>
 #include <pthread.h>
 #include <string.h>
