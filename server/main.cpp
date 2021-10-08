@@ -18,16 +18,16 @@ using namespace std;
 //TODO: global variables! it's a blasphemy!))
 
 int listen_socket;
-addrinfo *server_addrinfo;
-list<int> client_sockets_list;
+addrinfo *address_info;
+list<int> client_sockets_list; //TODO: probably, fd_set?
 
 
 //TODO: think out on thread exit conditions
-void* get_client_socket(void *args) {
+/*void* get_client_socket(void *args) {
     for (;;) {
         int client_socket = accept(listen_socket,
-                                   server_addrinfo->ai_addr,
-                                   &server_addrinfo->ai_addrlen);
+                                   address_info->ai_addr,
+                                   &address_info->ai_addrlen);
 
         if (client_socket == -1) {
             cerr << "accept() error: " << strerror(errno) << endl;
@@ -36,7 +36,7 @@ void* get_client_socket(void *args) {
             client_sockets_list.push_back(client_socket);
             char client_ip_address[INET_ADDRSTRLEN];
             if (inet_ntop(AF_INET,
-                          &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
+                          &((sockaddr_in *)(address_info->ai_addr))->sin_addr,
                           client_ip_address,
                           INET_ADDRSTRLEN) == NULL) {
                 cerr << "inet_ntop() error: " <<strerror(errno) << endl;
@@ -48,14 +48,19 @@ void* get_client_socket(void *args) {
     pthread_exit(EXIT_SUCCESS);
 }
 
+//TODO: think out on thread exit conditions
+void* handle_message(void *args) {
+    for (;;) {
+
+    }
+    pthread_exit(EXIT_SUCCESS);
+}
+*/
+
 //TODO: uncomment argc, argv to use input parameters
 int main(/*int argc, char *argv[]*/)
 {
-
     //TODO: add usage output section
-
-    //Temporary constant value for port
-    //TODO: add port input section
 
     addrinfo addrinfo_reqs = {
         .ai_flags = 0,
@@ -69,18 +74,18 @@ int main(/*int argc, char *argv[]*/)
     }; //address_info_requirements
 
     int getaddrinfo_status = getaddrinfo(NULL,
-                             SERVER_PORT,
-                             &addrinfo_reqs,
-                             &server_addrinfo);
+                                         SERVER_PORT,
+                                         &addrinfo_reqs,
+                                         &address_info);
 
     if (getaddrinfo_status != 0) {
         cerr << "getaddrinfo() error: " << gai_strerror(getaddrinfo_status) << endl;
         return getaddrinfo_status;
     }
 
-    listen_socket = socket(server_addrinfo->ai_family,
-                           server_addrinfo->ai_socktype,
-                           server_addrinfo->ai_protocol);
+    listen_socket = socket(address_info->ai_family,
+                           address_info->ai_socktype,
+                           address_info->ai_protocol);
 
     if (listen_socket == -1) {
         cerr << "socket() error: " << strerror(errno) << endl;
@@ -100,16 +105,14 @@ int main(/*int argc, char *argv[]*/)
     }
 
     if (bind(listen_socket,
-             server_addrinfo->ai_addr,
-             server_addrinfo->ai_addrlen) == -1) {
+             address_info->ai_addr,
+             address_info->ai_addrlen) == -1) {
         close(listen_socket);
-        freeaddrinfo(server_addrinfo);
+        freeaddrinfo(address_info);
         cerr << "bind() error: " << strerror(errno) << endl;
         return errno;
     }
 
-    //Temporary constat value for max client connections
-    //TODO: add max client connections selection block (or something)
     if (listen(listen_socket, MAX_CLIENTS) == -1) {
         cerr << "listen() error: " << strerror(errno) << endl;
         return errno;
@@ -117,7 +120,7 @@ int main(/*int argc, char *argv[]*/)
 
     char server_ip_address[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET,
-                  &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
+                  &((sockaddr_in *)(address_info->ai_addr))->sin_addr,
                   server_ip_address,
                   INET_ADDRSTRLEN) == NULL) {
         cerr << "inet_ntop() error: " <<strerror(errno) << endl;
@@ -126,25 +129,26 @@ int main(/*int argc, char *argv[]*/)
 
     cout << "server " << server_ip_address << " started on port " << SERVER_PORT << "." << endl;
 
-    pthread_t get_client_socket_thread;
-    int retval = pthread_create(&get_client_socket_thread, NULL, &get_client_socket, NULL);
+//    pthread_t get_client_socket_thread;
+//    int retval = pthread_create(&get_client_socket_thread, NULL, &get_client_socket, NULL);
     //get_client_socket_thread.detach();
+    //cout << "get_client_socket_thread detached successfully." << endl;
 
-    cout << "get_client_socket_thread detached successfully." << endl;
-
-    pollfd pollsd_set[MAX_CLIENTS]; // polling_socket_descriptors_set
+    pollfd pollsd_set[MAX_CLIENTS] = {0}; // polling_socket_descriptors_set
     pollsd_set[0].fd = listen_socket;
     pollsd_set[0].events = POLLIN;
     int pollsd_count = 1; // polling_socket_descriptors_count
 
     for(;;) {
-        int poll_count = poll(pollsd_set, pollsd_count, -1);
+        int poll_retval = poll(pollsd_set, pollsd_count, -1);
 
-        if (poll_count == -1) {
+        if (poll_retval == -1) {
             cerr << "poll() error: " << strerror(errno) << endl;
-            return errno;
+            continue;
+            //TODO: return?
+            //return errno;
         }
-/*
+
         for (int i = 0; i < pollsd_count; i++) {
 
             if (pollsd_set[i].revents & POLLIN) {
@@ -152,45 +156,110 @@ int main(/*int argc, char *argv[]*/)
                 if (pollsd_set[i].fd == listen_socket) {
 
                     int client_socket = accept(listen_socket,
-                                               server_addrinfo->ai_addr,
-                                               &server_addrinfo->ai_addrlen);
+                                               address_info->ai_addr,
+                                               &address_info->ai_addrlen);
 
                     if (client_socket == -1) {
                         cerr << "accept() error: " << strerror(errno) << endl;
+                        continue;
                     }
                     else {
                         pollsd_set[pollsd_count].fd = client_socket;
                         pollsd_set[pollsd_count].events = POLLIN;
                         pollsd_count++;
 
-
                         char client_ip_address[INET_ADDRSTRLEN];
                         if (inet_ntop(AF_INET,
-                                      &((sockaddr_in *)(server_addrinfo->ai_addr))->sin_addr,
+                                      &((sockaddr_in *)(address_info->ai_addr))->sin_addr,
                                       client_ip_address,
                                       INET_ADDRSTRLEN) == NULL) {
-                            cerr << "inet_ntop() error: " <<strerror(errno) << endl;
-                            return errno;
+                            cerr << "inet_ntop() error: " << strerror(errno) << endl;
+                            cout << "server accepted unknown (due to inet_ntop() error) client successfully." << endl;
                         }
-
-                        cout << "server " << server_ip_address << " started on port " << SERVER_PORT << "." << endl;
-
-
+                        // TODO: output a message informing that client is connected
+                        else {
+                            cout << "server accepted client from " << client_ip_address << " successfully." << endl;
+                        }
                     }
+                }
+                else {
+                    char message[MAX_MESSAGE_LENGTH];
+                    int bytes_recieved = recv(pollsd_set[i].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
+                    if (bytes_recieved == 0) {
+                        //Somebody disconnected , get his details and print
+                        close(pollsd_set[i].fd);
+                        pollsd_set[i] = pollsd_set[(pollsd_count - 1)];
+                        pollsd_count--;
+                        //TODO: print ip addres of disconnected socket.
+                        continue;
+                    }
+                    else if (bytes_recieved == -1) {
+                        cerr << "recv() error: " << strerror(errno) << endl;
+                    }
+                    else {
+                        for (int j = 0; j < pollsd_count; j++) {
+                            if (pollsd_set[j].fd != listen_socket && pollsd_set[j].fd != pollsd_set[i].fd) {
+                                if (send(pollsd_set[j].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0) == -1) {
+                                    cerr << "send() error: " << strerror(errno) << endl;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+                    /*
+                {
+                    //Somebody disconnected , get his details and print
+                    getpeername(sd , (struct sockaddr*)&address , \
+                        (socklen_t*)&addrlen);
+                    printf("Host disconnected , ip %s , port %d \n" ,
+                          inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+
+                    //Close the socket and mark as 0 in list for reuse
 
                 }
 
+                }
+                     for (i = 0; i < max_clients; i++)
+        {
+            sd = client_socket[i];
+
+            if (FD_ISSET( sd , &readfds))
+            {
+                //Check if it was for closing , and also read the
+                //incoming message
+                if ((valread = read( sd , buffer, 1024)) == 0)
+                {
+                    //Somebody disconnected , get his details and print
+                    getpeername(sd , (struct sockaddr*)&address , \
+                        (socklen_t*)&addrlen);
+                    printf("Host disconnected , ip %s , port %d \n" ,
+                          inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+
+                    //Close the socket and mark as 0 in list for reuse
+                    close( sd );
+                    client_socket[i] = 0;
+                }
+
+                //Echo back the message that came in
+                else
+                {
+                    //set the string terminating NULL byte on the end
+                    //of the data read
+                    buffer[valread] = '\0';
+                    send(sd , buffer , strlen(buffer) , 0 );
+
+                }
             }
-
         }
-*/
     }
-
-
+*/
     //TODO: temporary declared as int (should be int[max_clients])
 
 
-    char message[MAX_MESSAGE_LENGTH];
+//    char message[MAX_MESSAGE_LENGTH];
     /*while (read(client_socket, &message, (MAX_MESSAGE_LENGTH * sizeof(char))) != -1)
     {
         cout << "client message recieved: " << message << endl;
