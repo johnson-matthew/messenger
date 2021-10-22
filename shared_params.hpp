@@ -13,4 +13,11 @@
 //TODO: add port input section
 #define SERVER_PORT "49153"
 
+//POSIX-compatible constant value for infinite waiting time
+#define INFTIM -1
+
+//Constant value for quantity of polling file descriptors
+//in client module (stdin and client_socket)
+#define CLIENT_POLL_FDS_COUNT 2
+
 #endif // SHARED_PARAMS_HPP

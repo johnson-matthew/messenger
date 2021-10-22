@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <stdint-gcc.h>
 #include <unistd.h>
 
 #include "../shared_params.hpp"
@@ -47,7 +48,6 @@ int main(/*int argc, char *argv[]*/)
         cerr << "socket() error: " << strerror(errno) << endl;
         return errno;
     }
-    in
 
     //set SO_REUSEADDR and SO_REUSEPORT flags on a listen_socket to "true" value (1)
     int listen_socket_flag = (int)true;
@@ -92,7 +92,7 @@ int main(/*int argc, char *argv[]*/)
     int pollsd_count = 1; // polling_socket_descriptors_count
 
     for(;;) {
-        int poll_retval = poll(pollsd_set, pollsd_count, -1);
+        int poll_retval = poll(pollsd_set, pollsd_count, INFTIM);
 
         if (poll_retval == -1) {
             cerr << "poll() error: " << strerror(errno) << endl;
@@ -100,59 +100,61 @@ int main(/*int argc, char *argv[]*/)
             //TODO: return?
             //return errno;
         }
+        else if (poll_retval != 0) {
 
-        for (int i = 0; i < pollsd_count; i++) {
+            for (int i = 0; i < pollsd_count; i++) {
 
-            if (pollsd_set[i].revents & POLLIN) {
+                if (pollsd_set[i].revents & POLLIN) {
 
-                if (pollsd_set[i].fd == listen_socket) {
+                    if (pollsd_set[i].fd == listen_socket) {
 
-                    int client_socket = accept(listen_socket,
-                                               address_info->ai_addr,
-                                               &address_info->ai_addrlen);
+                        int client_socket = accept(listen_socket,
+                                                   address_info->ai_addr,
+                                                   &address_info->ai_addrlen);
 
-                    if (client_socket == -1) {
-                        cerr << "accept() error: " << strerror(errno) << endl;
-                        continue;
-                    }
-                    else {
-                        pollsd_set[pollsd_count].fd = client_socket;
-                        pollsd_set[pollsd_count].events = POLLIN;
-                        pollsd_count++;
-
-                        char client_ip_address[INET_ADDRSTRLEN];
-                        if (inet_ntop(AF_INET,
-                                      &((sockaddr_in *)(address_info->ai_addr))->sin_addr,
-                                      client_ip_address,
-                                      INET_ADDRSTRLEN) == NULL) {
-                            cerr << "inet_ntop() error: " << strerror(errno) << endl;
-                            cout << "server accepted unknown (due to inet_ntop() error) client successfully." << endl;
+                        if (client_socket == -1) {
+                            cerr << "accept() error: " << strerror(errno) << endl;
+                            continue;
                         }
-                        // TODO: output a message informing that client is connected
                         else {
-                            cout << "server accepted client from " << client_ip_address << " successfully." << endl;
+                            pollsd_set[pollsd_count].fd = client_socket;
+                            pollsd_set[pollsd_count].events = POLLIN;
+                            pollsd_count++;
+
+                            char client_ip_address[INET_ADDRSTRLEN];
+                            if (inet_ntop(AF_INET,
+                                          &((sockaddr_in *)(address_info->ai_addr))->sin_addr,
+                                          client_ip_address,
+                                          INET_ADDRSTRLEN) == NULL) {
+                                cerr << "inet_ntop() error: " << strerror(errno) << endl;
+                                cout << "server accepted unknown (due to inet_ntop() error) client successfully." << endl;
+                            }
+                            // TODO: output a message informing that client is connected
+                            else {
+                                cout << "server accepted client from " << client_ip_address << " successfully." << endl;
+                            }
                         }
                     }
-                }
-                else {
-                    char message[MAX_MESSAGE_LENGTH];
-                    int bytes_recieved = recv(pollsd_set[i].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
-                    if (bytes_recieved == 0) {
-                        //Somebody disconnected , get his details and print
-                        close(pollsd_set[i].fd);
-                        pollsd_set[i] = pollsd_set[(pollsd_count - 1)];
-                        pollsd_count--;
-                        //TODO: print ip addres of disconnected socket.
-                        continue;
-                    }
-                    else if (bytes_recieved == -1) {
-                        cerr << "recv() error: " << strerror(errno) << endl;
-                    }
                     else {
-                        for (int j = 0; j < pollsd_count; j++) {
-                            if (pollsd_set[j].fd != listen_socket && pollsd_set[j].fd != pollsd_set[i].fd) {
-                                if (send(pollsd_set[j].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0) == -1) {
-                                    cerr << "send() error: " << strerror(errno) << endl;
+                        char message[MAX_MESSAGE_LENGTH];
+                        int bytes_recieved = recv(pollsd_set[i].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
+                        switch(bytes_recieved) {
+                        case 0:
+                            //Somebody disconnected , get his details and print
+                            close(pollsd_set[i].fd);
+                            pollsd_set[i] = pollsd_set[(pollsd_count - 1)];
+                            pollsd_count--;
+                            //TODO: print ip addres of disconnected socket.
+                            continue;
+                        case -1: 
+                            cerr << "recv() error: " << strerror(errno) << endl;
+                            continue;
+                        default:
+                            for (int j = 0; j < pollsd_count; j++) {
+                                if (pollsd_set[j].fd != listen_socket && pollsd_set[j].fd != pollsd_set[i].fd) {
+                                    if (send(pollsd_set[j].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0) == -1) {
+                                        cerr << "send() error: " << strerror(errno) << endl;
+                                    }
                                 }
                             }
                         }

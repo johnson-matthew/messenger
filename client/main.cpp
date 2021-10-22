@@ -10,44 +10,6 @@
 
 using namespace std;
 
-char message[MAX_MESSAGE_LENGTH];
-int client_socket;
-
-void* handle_incoming_message(void *args) {
-    pollfd pollsd = {0}; // polling_socket_descriptor
-    pollsd.fd = client_socket;
-    pollsd.events = POLLIN;
-
-    for(;;) {
-        int poll_retval = poll(&pollsd, 1, -1);
-
-        if (poll_retval == -1) {
-            cerr << "poll() error: " << strerror(errno) << endl;
-            continue;
-            //TODO: return?
-            //return errno;
-        }
-
-        if (pollsd.revents & POLLIN) {
-            int bytes_recieved = recv(pollsd.fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
-            cout << "here" << endl;
-
-            if (bytes_recieved == 0) {
-                //Server disconnected
-                close(pollsd.fd);
-                cout << "server closed connection." << endl;
-                return nullptr;
-            }
-            else if (bytes_recieved == -1) {
-                cerr << "recv() error: " << strerror(errno) << endl;
-            }
-            else {
-                printf("%s\n", message);
-            }
-        }
-    }
-}
-
 //TODO: uncomment argc, argv to use input parameters
 int main(/*int argc, char *argv[]*/)
 {
@@ -80,7 +42,7 @@ int main(/*int argc, char *argv[]*/)
         return status;
     }
 
-    client_socket = socket(server_addrinfo->ai_family,
+    int client_socket = socket(server_addrinfo->ai_family,
                                server_addrinfo->ai_socktype,
                                server_addrinfo->ai_protocol);
 
@@ -104,48 +66,65 @@ int main(/*int argc, char *argv[]*/)
 
     cout << "connection with host " << SERVER_HOSTNAME <<
             " on port " << SERVER_PORT << " established." << endl;
-/*
-    fd_set rfds;
+
+    pollfd pollsd_set[CLIENT_POLL_FDS_COUNT] = {
+        {
+            .fd = client_socket,
+            .events = POLLIN,
+            .revents = 0
+        },
+
+        {
+            .fd = STDIN_FILENO,
+            .events = POLLIN,
+            .revents = 0
+        }
+    }; // polling_socket_descriptors_set
 
     for (;;) {
-        FD_ZERO(&rfds);
-        FD_SET(0, &rfds);
-        int maxfd = 0;
-        int retval;
-        FD_SET(client_socket, &rfds);
-        if(maxfd < client_socket) {
-            maxfd = client_socket;
-        }
-        timeval tv;
-        tv.tv_sec = 5;
-        tv.tv_usec = 0;
-//        int bytes_recieved = recv(pollsd.fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
-        cout << "here" << endl;
-        int bytes_recieved = select(maxfd+1, &rfds, NULL, NULL, &tv);
-        if(retval == -1){
-            printf("select Error, client program exit\n");
-            break;
-        }else if(retval == 0){
-            printf("The client does not have any input information, and the server does not have any information coming. waiting...\n");
+
+        char message[MAX_MESSAGE_LENGTH] = {0};
+        int poll_retval = poll(pollsd_set, CLIENT_POLL_FDS_COUNT, INFTIM);
+
+        if (poll_retval == -1) {
+            cerr << "poll() error: " << strerror(errno) << endl;
             continue;
-        }else{
+            //TODO: return?
+            //return errno;
+        }
+        else if (poll_retval == 0) {
+            cerr << "timeout reached: no data recieved after infinite time." << endl;
+        }
+        else {
+            for (int i = 0; i < CLIENT_POLL_FDS_COUNT; i++) {
 
-            if(FD_ISSET(client_socket,&rfds)){
-                bytes_recieved = recv(client_socket, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
-                cout << message << endl;
-            }
-            When the user enters the information, he begins to process the information and send it.
-            if(FD_ISSET(0, &rfds)){
-                fgets(message, MAX_MESSAGE_LENGTH * sizeof(char), stdin);
-                send(client_socket, message, MAX_MESSAGE_LENGTH * sizeof(char),0); //Send out
+                if (pollsd_set[i].revents & POLLIN) {
 
+                    if (pollsd_set[i].fd == STDIN_FILENO) {
+                        cin.getline(message, MAX_MESSAGE_LENGTH * sizeof(char));
+
+                        if (send(client_socket, message, MAX_MESSAGE_LENGTH * sizeof(char), 0) == -1) {
+                            cerr << "send() error: " << strerror(errno) << endl;
+                        }
+                        continue;
+                    }
+                    else if (pollsd_set[i].fd == client_socket) {
+                        int bytes_recieved = recv(pollsd_set[i].fd, message, MAX_MESSAGE_LENGTH * sizeof(char), 0);
+
+                        if (bytes_recieved == -1) {
+                            cerr << "recv() error: " << strerror(errno) << endl;
+                        }
+                        else {
+                            cout << message << endl;
+                        }
+                        continue;
+                    }
+                }
             }
         }
     }
-*/
 
-
-    pthread_t incoming_message_handling_thread;
+/*    pthread_t incoming_message_handling_thread;
 
     int retval = pthread_create(&incoming_message_handling_thread, NULL, &handle_incoming_message, NULL);
 
@@ -166,8 +145,8 @@ int main(/*int argc, char *argv[]*/)
     else {
         cout << "handle_incoming_message thread detached successfully." << endl;
     }
-
-    while (true) {
+*/
+    /*while (true) {
         cout << "please, enter your message and press \"Enter\": ";
         cin >> message;
 
@@ -184,7 +163,7 @@ int main(/*int argc, char *argv[]*/)
             close(client_socket);
             break;
         }
-    }
-
+    }*/
+//TODO: poll sets errno, use it
     return 0;
 }

@@ -1,15 +1,13 @@
 # depslib dependency file v1.0
-1633716855 source:/home/user/CodeBlocksProjects/messenger/client/main.cpp
+1634939493 source:/home/user/CodeBlocksProjects/messenger/client/main.cpp
 	<iostream>
 	<netdb.h>
-	<netinet/in.h>
-	<pthread.h>
 	<poll.h>
+	<pthread.h>
 	<string.h>
-	<stdio.h>
 	<sys/socket.h>
 	<unistd.h>
 	"../shared_params.hpp"
 
-1633686069 /home/user/CodeBlocksProjects/messenger/shared_params.hpp
+1634939164 /home/user/CodeBlocksProjects/messenger/shared_params.hpp
 
